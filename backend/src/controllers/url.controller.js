@@ -6,55 +6,47 @@ import { asyncHandler } from "../utils/AsyncHandler.js";
 const getShortURL = asyncHandler(async (req, res) => {
     const { original_url } = req.body
 
-    const base_url = `http://localhost:${process.env.PORT}`
+    const baseUrl = `http://localhost:${process.env.PORT}`
 
-    const url_set_exists = await UrlSet.findOne(
-        {
-            originalUrl: original_url
-        }
-    )
+    // Check if URL already exists
+    const existingUrlSet = await UrlSet.findOne({
+        originalUrl: original_url
+    })
 
-    let short_path = ""
+    let shortPath = ""
 
-    if (!url_set_exists) {
+    if (!existingUrlSet) {
+        // Generate unique short path
         const corpus = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-        let match = true
+        let isUnique = false
 
-        while (match) {
-            let temp_path = ""
-
-            // creation
-            for (let i=0; i<10; i++) {
+        while (!isUnique) {
+            let tempPath = ""
+            for (let i = 0; i < 10; i++) {
                 const index = Math.floor(Math.random() * corpus.length)
-                temp_path += corpus[index]
+                tempPath += corpus[index]
             }
 
-            // check
-            const url_set = await UrlSet.findOne(
-                {
-                    shortPath: temp_path
-                }
-            )
-            if (!url_set) {
-                match = false
-                short_path = temp_path
+            // Check if generated path exists
+            const urlSet = await UrlSet.findOne({ shortPath: tempPath })
+            if (!urlSet) {
+                shortPath = tempPath
+                isUnique = true
             }
         }
 
-        const urlSet = await UrlSet.create(
-            {
-                originalUrl: original_url,
-                shortPath: short_path
-            }
-        )
+        await UrlSet.create({
+            originalUrl: original_url,
+            shortPath: shortPath
+        })
     } else {
-        short_path = url_set_exists.shortPath
+        shortPath = existingUrlSet.shortPath
     }
 
     return res.status(201).json(
         new ApiResponse(201, {
             originalURL: original_url,
-            shortURL: `${base_url}/${short_path}`
+            shortURL: `${baseUrl}/${shortPath}`
         }, "Short URL created")
     )
 })
@@ -62,26 +54,24 @@ const getShortURL = asyncHandler(async (req, res) => {
 const redirectURL = asyncHandler(async (req, res) => {
     const { path } = req.params
 
-    if (path.length < 10) {
-        throw new ApiError(400, "Incorrect short URL path called")
+    if (!path || path.length !== 10) {
+        throw new ApiError(400, "Invalid short URL path")
     }
 
-    const url_set = await UrlSet.findOne(
-        {
-            shortPath: path
-        }
-    )
+    const urlSet = await UrlSet.findOne({
+        shortPath: path
+    })
 
-    if (!url_set) {
+    if (!urlSet) {
         throw new ApiError(404, `No URL found linked to this: ${path} short path`)
     }
 
-    let target_URL = url_set.originalUrl
-    if (!target_URL.startsWith("https://") && !target_URL.startsWith("http://")) {
-        target_URL = "https://" + target_URL
+    let targetUrl = urlSet.originalUrl
+    if (!targetUrl.startsWith("https://") && !targetUrl.startsWith("http://")) {
+        targetUrl = "https://" + targetUrl
     }
 
-    res.redirect(target_URL)
+    res.redirect(targetUrl)
 })
 
 export { getShortURL, redirectURL }

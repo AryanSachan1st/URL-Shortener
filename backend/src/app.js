@@ -26,18 +26,19 @@ app.use("/", urlRouter)
 
 // global error handler
 app.use((err, req, res, next) => {
-    let code = err.statusCode
-    let message = err.message
+    // Default to 500 if undefined
+    let code = err.statusCode || 500
+    let message = err.message || "Internal Server Error"
 
     if (err.name === "CastError") {
         code = 400
         message = "Resource not found, Invalid id"
     } else if (err.code === 11000) {
-        code = 11000
+        code = 409 // Conflict
         message = "Duplicate field value entered"
     } else if (err.name === "ValidationError") {
         code = 400
-        message = Object.values(err.errors).map((error) => error.message).join(", ")
+        message = Object.values(err.errors || {}).map((error) => error.message).join(", ")
     }
 
     return res.status(code).json(
@@ -46,7 +47,7 @@ app.use((err, req, res, next) => {
             statusCode: code,
             errorMessage: message,
             errors: err.errors || [], // all the errors
-            stack: err.stack // stack trace
+            stack: process.env.NODE_ENV === "development" ? err.stack : undefined // detailed stack trace only in dev
         }
     )
 })

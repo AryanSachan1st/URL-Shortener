@@ -22,12 +22,10 @@ connectDB()
 
     server.on("error", (error) => {
         console.log(`Error in server: ${error}`)
-        throw error
-        process.exit(1)
+    process.exit(1)
     })
 })
 .catch((error) => {
     console.log(`Failed to start application: ${error}`)
-    throw error
     process.exit(1)
 })
